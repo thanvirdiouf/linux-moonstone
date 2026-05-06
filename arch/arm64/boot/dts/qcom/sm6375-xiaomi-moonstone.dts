@@ -1,20 +1,73 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Copyright (c) 2022, Konrad Dybcio <konrad.dybcio@somainline.org>
+ * Copyright (c) 2026, Thanvir Diouf <tandiouf@gmail.com>
  */
 
 /dts-v1/;
 
-#include <dt-bindings/gpio/gpio.h>
 #include "sm6375.dtsi"
 #include "pm6125.dtsi"
 #include "pmk8350.dtsi"
 #include "pmr735a.dtsi"
 
 /{
-        model = "Xiaomi Poco X5 5G";
-        compatible = "xiaomi,moonstone", "qcom,sm6375";
-        chassis-type = "handset";
+	model = "Xiaomi Poco X5 5G";
+	compatible = "xiaomi,moonstone", "qcom,sm6375";
+	chassis-type = "handset";
+	
+	/*chosen{};
+	gpio-keys{};*/
+	reserved-memory{
+		cont_splash_mem: memory@85200000 {
+            		reg = <0 0x85200000 0 0xc00000>;
+            		no-map;
+        	};
+
+		ramoops@d0000000 {
+			compatible = "ramoops";
+			reg = <0 0xd0000000 0 0x200000>;
+			pmsg-size = <0x100000>;
+			console-size = <0x100000>;
+		};
+	};
+
 
   
  };
+
+ //OVERRIDES
+ &pil_adsp_mem {
+    reg = <0 0x86700000 0 0x2800000>;
+};
+
+&pil_cdsp_mem {
+    reg = <0 0x88f00000 0 0x1e00000>;
+};
+
+&pil_video_mem {
+    reg = <0 0x8ad00000 0 0x500000>;
+};
+
+&pil_ipa_fw_mem {
+    reg = <0 0x8b200000 0 0x10000>;
+};
+
+&pil_ipa_gsi_mem {
+    reg = <0 0x8b210000 0 0xa000>;
+};
+
+&pil_gpu_micro_code_mem {
+    reg = <0 0x8b21a000 0 0x2000>;
+};
+
+&pil_modem_mem {
+    reg = <0 0x8b800000 0 0x10000000>;
+};
+
+&dfps_data_mem {
+    reg = <0 0x85e00000 0 0x100000>;
+};
+
+&removed_region {
+    reg = <0 0xc0000000 0 0x5100000>;
+};
