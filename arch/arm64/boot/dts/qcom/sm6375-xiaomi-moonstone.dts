@@ -15,7 +15,31 @@
 	compatible = "xiaomi,moonstone", "qcom,sm6375";
 	chassis-type = "handset";
 	
-	//chosen{};
+	chosen {
+		stdout-path = "serial0:115200n8";
+
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		framebuffer: framebuffer@85200000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0x85200000 0x0 0xc00000>;
+			width = <1080>;
+			height = <2400>;
+			stride = <(1080 * 4)>;
+			format = "a8r8g8b8";
+			clocks = <&gcc GCC_DISP_AHB_CLK>,
+				<&gcc GCC_DISP_HF_AXI_CLK>,
+				<&gcc GCC_DISP_THROTTLE_CORE_CLK>,
+				<&gcc GCC_DISP_GPLL0_DIV_CLK_SRC>;
+		};
+	};
+
+	aliases {
+    	serial0 = &uart9;
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
@@ -104,5 +128,43 @@
 		input-enable;
 		bias-pull-up;
 		power-source = <1>;
+	};
+};
+
+//OVERRIDES RELATED TO CHOSEN
+
+&qupv3_id_1 {
+	uart9: serial@4c8c000 {
+		compatible = "qcom,geni-uart";
+		reg = <0x0 0x04c8c000 0x0 0x4000>;
+		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>;
+		clock-names = "se";
+		power-domains = <&rpmpd SM6375_VDDCX>;
+		operating-points-v2 = <&qup_opp_table>;
+		pinctrl-0 = <&qup_uart9_default>;
+		pinctrl-1 = <&qup_uart9_sleep>;
+		pinctrl-names = "default", "sleep";
+		status = "disabled";
+	};
+};
+
+&uart9 {
+    status = "okay";
+};
+
+&tlmm {
+	qup_uart9_default: qup-uart9-default-state {
+		pins = "gpio25", "gpio26";
+		function = "qup13_f2";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	qup_uart9_sleep: qup-uart9-sleep-state {
+		pins = "gpio25", "gpio26";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
 	};
 };
