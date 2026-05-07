@@ -145,12 +145,8 @@
 		pinctrl-0 = <&qup_uart9_default>;
 		pinctrl-1 = <&qup_uart9_sleep>;
 		pinctrl-names = "default", "sleep";
-		status = "disabled";
+		status = "okay";
 	};
-};
-
-&uart9 {
-    status = "okay";
 };
 
 &tlmm {
