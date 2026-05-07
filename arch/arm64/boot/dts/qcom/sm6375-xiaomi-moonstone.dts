@@ -16,7 +16,7 @@
 	chassis-type = "handset";
 	
 	chosen {
-		stdout-path = "serial0:115200n8";
+		stdout-path = "framebuffer";
 
 		#address-cells = <2>;
 		#size-cells = <2>;
