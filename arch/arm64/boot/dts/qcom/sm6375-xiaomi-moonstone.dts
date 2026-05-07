@@ -87,7 +87,16 @@
     reg = <0 0xc0000000 0 0x5100000>;
 };
 
-//gpio overrides
+//PMIC overrides
+&pon_pwrkey {
+	status = "okay";
+};
+
+&pon_resin {
+	status = "okay";
+	linux,code = <KEY_VOLUMEDOWN>;
+};
+
 &pmr735a_gpios {
 	vol_up_n: vol-up-n-state {
 		pins = "gpio1";
