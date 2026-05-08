@@ -114,6 +114,11 @@
 };
 
 //PMIC overrides
+&pm6125_pon {			//Remove duplicate pon labels from pm6125
+    /delete-node/ pwrkey;
+    /delete-node/ resin;
+};
+
 &pon_pwrkey {
 	status = "okay";
 };
