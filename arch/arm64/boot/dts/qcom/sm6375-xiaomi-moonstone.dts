@@ -18,7 +18,7 @@
 	chassis-type = "handset";
 	
 	chosen {
-		stdout-path = "framebuffer";
+		stdout-path = "serial0:115200n8";
 
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -27,6 +27,7 @@
 		framebuffer: framebuffer@85200000 {
 			compatible = "simple-framebuffer";
 			reg = <0x0 0x85200000 0x0 0xc00000>;
+			memory-region = <&cont_splash_mem>;
 			width = <1080>;
 			height = <2400>;
 			stride = <(1080 * 4)>;
@@ -39,7 +40,7 @@
 	};
 
 	aliases {
-    	serial0 = &uart9;
+		serial0 = &uart9;
 	};
 
 	gpio-keys {
@@ -60,24 +61,48 @@
 	};
 	reserved-memory{
 		cont_splash_mem: memory@85200000 {
-            		reg = <0 0x85200000 0 0xc00000>;
+            		reg = <0x00 0x85200000 0x00 0xc00000>;
             		no-map;
         	};
 
 		ramoops@d0000000 {
 			compatible = "ramoops";
-			reg = <0 0xd0000000 0 0x200000>;
+			reg = <0x00 0xd0000000 0x00 0x200000>;
 			pmsg-size = <0x100000>;
 			console-size = <0x100000>;
+		};
+
+		secure_display_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x00 0x00 0x00 0xffffffff>;
+			reusable;
+			alignment = <0x00 0x400000>;
+			size = <0x00 0x5c00000>;
+		};
+
+		mem_dump_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x00 0x00 0x00 0xffffffff>;
+			reusable;
+			size = <0x00 0x800000>;
+		};
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0x00 0x00 0x00 0xffffffff>;
+			reusable;
+			alignment = <0x00 0x400000>;
+			size = <0x00 0x2000000>;
+			linux,cma-default;
 		};
 	};
 
 
   
- };
+};
 
  //reserved-memory overrides
- &pil_adsp_mem {
+&pil_adsp_mem {
     reg = <0 0x86700000 0 0x2800000>;
 };
 
@@ -103,10 +128,6 @@
 
 &pil_mpss_wlan_mem {
     reg = <0 0x8b800000 0 0x10000000>;
-};
-
-&dfps_data_mem {
-    reg = <0 0x85e00000 0 0x100000>;
 };
 
 &removed_mem {
@@ -141,17 +162,19 @@
 //OVERRIDES RELATED TO CHOSEN
 
 &qupv3_id_1 {
+	status = "okay";
 	uart9: serial@4c8c000 {
 		compatible = "qcom,geni-uart";
 		reg = <0x0 0x04c8c000 0x0 0x4000>;
 		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>;
-		clock-names = "se";
+		clock-names = "se", "m-ahb", "s-ahb";
+		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_M_AHB_CLK>,
+			<&gcc GCC_QUPV3_WRAP_1_S_AHB_CLK>;
 		power-domains = <&rpmpd SM6375_VDDCX>;
 		operating-points-v2 = <&qup_opp_table>;
 		pinctrl-0 = <&qup_uart9_default>;
-		pinctrl-1 = <&qup_uart9_sleep>;
-		pinctrl-names = "default", "sleep";
+		pinctrl-names = "default";
 		status = "okay";
 	};
 };
@@ -163,11 +186,21 @@
 		drive-strength = <2>;
 		bias-disable;
 	};
+};
 
-	qup_uart9_sleep: qup-uart9-sleep-state {
-		pins = "gpio25", "gpio26";
-		function = "gpio";
-		drive-strength = <2>;
-		bias-pull-down;
-	};
+&ufs_mem_hc {
+	status = "okay";
+	vcc-supply = <&pm6125_l24>;
+	vcc-max-microamp = <600000>;
+	vccq2-supply = <&pm6125_l11>;
+	vccq2-max-microamp = <600000>;
+	vdd-hba-supply = <&pm6125_l18>;
+};
+
+&ufs_mem_phy {
+	status = "okay";
+	vdda-phy-supply = <&pm6125_l4>;
+	vdda-pll-supply = <&pm6125_l12>;
+	vdda-phy-max-microamp = <85700>;
+	vdda-pll-max-microamp = <18300>;
 };
