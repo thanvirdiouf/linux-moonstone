@@ -411,7 +411,10 @@
 		      <0x0 0x04810000 0x0 0x9000>;
 		reg-names = "std", "ice", "ice_hwkm";
 		interrupts = <GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>;
-			#reset-cells = <1>;
+
+		phys = <&ufs_mem_phy>;
+		phy-names = "ufsphy";
+		#reset-cells = <1>;
 
 		clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
 		         <&gcc GCC_SYS_NOC_UFS_PHY_AXI_CLK>,
