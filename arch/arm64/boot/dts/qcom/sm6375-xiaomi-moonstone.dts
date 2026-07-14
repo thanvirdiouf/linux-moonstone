@@ -483,15 +483,15 @@
 
 &mdss_dsi0 {
 	status = "okay";
-	vdda-supply = <&vreg_dummy_1p2>; /* Adjust to actual PMIC routing */
+	vdda-supply = <&vreg_dummy_1p2vreg_l8a>; /* Adjust to actual PMIC routing */
 
 	panel@0 {
 		compatible = "xiaomi,m17-k6s-panel";
 		reg = <0>;
 
 		/* Map regulators mapped in C driver */
-		vddio-supply = <&vreg_dummy_1p8>;
-		vdd-supply = <&vreg_dummy_1p8>; 
+		vddio-supply = <&vreg_dummy_1p8vreg_l13a>;
+		vdd-supply = <&vreg_dummy_1p8vreg_l13a>; 
 		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
 
 		port {
