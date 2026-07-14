@@ -93,6 +93,21 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
+	vreg_dummy_1p2vreg_l8a: regulator-dummy-1p2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_dummy_1p2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	vreg_dummy_1p8vreg_l13a: regulator-dummy-1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_dummy_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
 };
 
 /* PIL memory region overrides matching stock Moonstone layout */
