@@ -1,3 +1,5 @@
+#include <linux/of.h>
+#include <linux/mod_devicetable.h>
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Xiaomi Poco X5 5G (m17-k6s) DSI Panel Driver
@@ -61,7 +63,7 @@ static int qcom_dts_mipi_dsi_send_seq(struct mipi_dsi_device *dsi, const u8 *seq
 				.tx_buf = p + 7,
 				.tx_len = plen,
 			};
-			ret = mipi_dsi_device_transfer(dsi, &msg);
+			ret = dsi->host->ops->transfer(dsi->host, &msg);
 			if (ret < 0)
 				return ret;
 		}
