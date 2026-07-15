@@ -21,6 +21,11 @@
 / {
 	model = "Xiaomi Poco X5 5G";
 	compatible = "xiaomi,moonstone", "qcom,sm6375";
+
+	/* Required by Qualcomm ABL to validate the DTB */
+	qcom,msm-id = <0x1fb 0x10000 0x242 0x10000>;
+	qcom,board-id = <0x1000b 0x00>;
+
 	chassis-type = "handset";
 
 	chosen {
