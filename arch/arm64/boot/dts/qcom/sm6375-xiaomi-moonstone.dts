@@ -498,15 +498,14 @@
 
 &mdss_dsi0 {
 	status = "okay";
-	vdda-supply = <&vreg_dummy_1p2vreg_l8a>; /* Adjust to actual PMIC routing */
+	vdda-supply = <&vreg_l6b>;
 
 	panel@0 {
 		compatible = "xiaomi,m17-k6s-panel";
 		reg = <0>;
 
-		/* Map regulators mapped in C driver */
-		vddio-supply = <&vreg_dummy_1p8vreg_l13a>;
-		vdd-supply = <&vreg_dummy_1p8vreg_l13a>; 
+		vddio-supply = <&vreg_l13a>;
+		vdd-supply = <&vreg_l8a>;
 		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
 
 		port {
@@ -534,7 +533,34 @@
 	};
 };
 
-/* Resolve the non-bidirectional graph warning */
+
+/* Temporary dummy regulators to satisfy display dependencies */
+/ {
+	vreg_l6b: regulator-dummy-l6b {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_l6b_dummy";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	vreg_l13a: regulator-dummy-l13a {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_l13a_dummy";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	vreg_l8a: regulator-dummy-l8a {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_l8a_dummy";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <3000000>;
+		regulator-always-on;
+	};
+};
+
 &mdss_dsi0_out {
 	remote-endpoint = <&panel_in>;
 	data-lanes = <0 1 2 3>;
