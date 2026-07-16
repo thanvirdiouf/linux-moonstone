@@ -216,7 +216,8 @@ static int xiaomi_m17_dsc_init(struct xiaomi_m17_panel *ctx)
 	dsc->slice_count = dsc->pic_width / dsc->slice_width; // 2 slices
 	dsc->bits_per_component = 8;
 	dsc->bits_per_pixel = 8 << 4; // DSC DRM API represents bpp in U4.4 format
-
+	dsc->block_pred_enable = true;
+	
 	ctx->dsi->dsc = dsc;
 	return 0;
 }
