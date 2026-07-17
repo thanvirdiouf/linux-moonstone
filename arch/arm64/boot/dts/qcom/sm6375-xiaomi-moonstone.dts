@@ -506,9 +506,10 @@
 	vdda-supply = <&vreg_l6b>;
 
 	panel@0 {
-		compatible = "xiaomi,m17-k6s-panel";
+		compatible = "xiaomi,moonstone-m17";
 		reg = <0>;
 
+		/* Real PMIC routing extracted from vendor_boot */
 		vddio-supply = <&vreg_l13a>;
 		vdd-supply = <&vreg_l8a>;
 		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
