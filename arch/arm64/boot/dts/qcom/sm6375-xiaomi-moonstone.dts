@@ -637,12 +637,5 @@
 			reg = <0x800>;
 			mode = "hard";
 		};
-
-		pm6125_gpios: gpio@c00 {
-			compatible = "qcom,pm6125-gpio", "qcom,spmi-gpio";
-			reg = <0xc00>;
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
 	};
 };
