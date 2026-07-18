@@ -8,10 +8,20 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
+#include <drm/drm_connector.h>
+#include <drm/drm_modes.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
 #include <drm/display/drm_dsc.h>
 #include <drm/display/drm_dsc_helper.h>
+
+#ifndef mipi_dsi_dcs_write_seq
+#define mipi_dsi_dcs_write_seq(dsi, cmd, seq...)            \
+	do {                                                    \
+		static const u8 d[] = { seq };                      \
+		mipi_dsi_dcs_write(dsi, cmd, d, ARRAY_SIZE(d));     \
+	} while (0)
+#endif
 
 struct xiaomi_m17_panel {
 	struct drm_panel panel;
