@@ -194,7 +194,7 @@
 	};
 };
 
-&qupv3_se8_i2c {
+&i2c8 {
 	status = "okay";
 
 	touchscreen@38 {
@@ -225,7 +225,7 @@
 	};
 };
 
-&uart6 {
+&uart1 {
 	status = "okay";
 	
 	bluetooth {
@@ -442,30 +442,7 @@
 	};
 };
 
-&pcie0 {
-	status = "okay";
-	max-link-speed = <2>;
 
-	perst-gpios = <&tlmm 118 GPIO_ACTIVE_LOW>;
-	wake-gpios = <&tlmm 117 GPIO_ACTIVE_HIGH>;
-
-	pcie@0 {
-		device_type = "pci";
-		reg = <0x0 0x0 0x0 0x0 0x0>;
-		
-		wifi: wifi@0 {
-			compatible = "pci105b,e01c";
-			reg = <0x0 0x0 0x0 0x0 0x0>;
-			
-			qcom,ath11k-calibration-variant = "Xiaomi_Moonstone";
-
-			vddrfacmn-supply = <&pm6125_l20>; 
-			vddaon-supply = <&pm6125_l19>; 
-			vddwlcx-supply = <&pm6125_s5>; 
-			vddwlmx-supply = <&pm6125_s6>; 
-		};
-	};
-};
 
 &usb_1 {
 	status = "okay";
