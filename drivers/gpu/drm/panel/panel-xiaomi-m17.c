@@ -276,3 +276,6 @@ static struct mipi_dsi_driver xiaomi_m17_panel_driver = {
 	},
 };
 module_mipi_dsi_driver(xiaomi_m17_panel_driver);
+
+MODULE_DESCRIPTION("Xiaomi M17 DRM Panel Driver");
+MODULE_LICENSE("GPL v2");
