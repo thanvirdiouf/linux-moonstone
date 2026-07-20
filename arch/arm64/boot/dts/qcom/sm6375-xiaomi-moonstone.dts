@@ -547,11 +547,11 @@
 };
 
 &mdss_dsi0 {
-	status = "disabled";
+	status = "okay";
 	vdda-supply = <&vreg_l6b>;
 
 	panel@0 {
-		compatible = "xiaomi,moonstone-m17";
+		compatible = "xiaomi,m17";
 		reg = <0>;
 
 		/* Real PMIC routing extracted from vendor_boot */
