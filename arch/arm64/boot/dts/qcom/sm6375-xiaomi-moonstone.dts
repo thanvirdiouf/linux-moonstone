@@ -194,26 +194,6 @@
 	};
 };
 
-&i2c8 {
-	status = "okay";
-
-	touchscreen@38 {
-		compatible = "focaltech,ft3519t";
-		reg = <0x38>;
-		
-		interrupt-parent = <&tlmm>;
-		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
-		
-		reset-gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
-		vcc-supply = <&reg_ts_avdd>;
-		iovcc-supply = <&pm6125_l13>; 
-
-		touchscreen-size-x = <1080>;
-		touchscreen-size-y = <2400>;
-	};
-};
-
-
 &tlmm {
 	gpio-reserved-ranges = <13 4>;
 
@@ -222,24 +202,6 @@
 		function = "qup13_f2";
 		drive-strength = <2>;
 		bias-disable;
-	};
-};
-
-&uart1 {
-	status = "okay";
-	
-	bluetooth {
-		compatible = "qcom,wcn6855-bt";
-		
-		vddio-supply = <&pm6125_l13>; 
-		vddaon-supply = <&pm6125_l19>;
-		vddrfa1-supply = <&pm6125_l20>;
-		vddrfa2-supply = <&pm6125_l20>;
-		vddrfa3-supply = <&pm6125_l20>;
-
-		enable-gpios = <&tlmm 85 GPIO_ACTIVE_HIGH>;
-		
-		max-speed = <3200000>;
 	};
 };
 
@@ -442,8 +404,6 @@
 	};
 };
 
-
-
 &usb_1 {
 	status = "okay";
 };
@@ -541,20 +501,14 @@
 	};
 };
 
-&mdss_dsi0_out {
-	remote-endpoint = <&panel_in>;
-	data-lanes = <0 1 2 3>;
-};
-
 &mdss_dsi0 {
 	status = "okay";
 	vdda-supply = <&vreg_l6b>;
 
 	panel@0 {
-		compatible = "xiaomi,m17";
+		compatible = "xiaomi,m17-k6s-panel";
 		reg = <0>;
 
-		/* Real PMIC routing extracted from vendor_boot */
 		vddio-supply = <&vreg_l13a>;
 		vdd-supply = <&vreg_l8a>;
 		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
@@ -612,32 +566,7 @@
 	};
 };
 
-/ {
-	reg_ts_avdd: ts-avdd-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "ts_avdd";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		gpio = <&tlmm 49 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-boot-on;
-	};
-};
-
-
-
-
-&spmi_bus {
-	pm6125_lsid0: pmic@0 {
-		compatible = "qcom,pm6125", "qcom,spmi-pmic";
-		reg = <0x0 SPMI_USID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		pm6125_pon: pon@800 {
-			compatible = "qcom,pm8916-pon";
-			reg = <0x800>;
-			mode = "hard";
-		};
-	};
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
 };
