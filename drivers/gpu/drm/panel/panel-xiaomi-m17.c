@@ -3,6 +3,7 @@
  * Upstream-conformant DRM panel driver for the Xiaomi M17 (Poco X5) panel.
  */
 
+#include <linux/backlight.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/module.h>
@@ -148,32 +149,36 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
 
 static int xiaomi_m17_panel_unprepare(struct drm_panel *panel)
 {
-	struct xiaomi_m17_panel *ctx = container_of(panel, struct xiaomi_m17_panel, panel);
+    struct xiaomi_m17_panel *ctx = container_of(panel, struct xiaomi_m17_panel, panel);
 
-	mipi_dsi_dcs_set_display_off(ctx->dsi);
-	usleep_range(10000, 11000);
-	mipi_dsi_dcs_enter_sleep_mode(ctx->dsi);
-	msleep(120);
+    mipi_dsi_dcs_set_display_off(ctx->dsi);
+    msleep(20);
+    
+    mipi_dsi_dcs_enter_sleep_mode(ctx->dsi);
+    msleep(150);
 
-	gpiod_set_value(ctx->reset_gpio, 1);
-	regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+    /* Assert reset to physically power down the TCON */
+    gpiod_set_value(ctx->reset_gpio, 1);
+    regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
 
-	return 0;
+    return 0;
 }
 
+
 static const struct drm_display_mode xiaomi_m17_mode = {
-	.clock = 414050, 
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 120,
-	.hsync_end = 1080 + 120 + 28,
-	.htotal = 1080 + 120 + 120 + 28,
-	.vdisplay = 2400,
-	.vsync_start = 2400 + 20,
-	.vsync_end = 2400 + 20 + 2,
-	.vtotal = 2400 + 20 + 10 + 2,
-	.width_mm = 67,
-	.height_mm = 149,
+    .clock = 393396, /* Uncompressed pixel clock: 1348 * 2432 * 120Hz / 1000 */
+    .hdisplay = 1080,
+    .hsync_start = 1080 + 120,        /* hdisplay + h-front-porch */
+    .hsync_end = 1080 + 120 + 28,     /* hsync_start + h-pulse-width */
+    .htotal = 1080 + 120 + 28 + 120,  /* hsync_end + h-back-porch = 1348 */
+    .vdisplay = 2400,
+    .vsync_start = 2400 + 20,         /* vdisplay + v-front-porch */
+    .vsync_end = 2400 + 20 + 2,       /* vsync_start + v-pulse-width */
+    .vtotal = 2400 + 20 + 2 + 10,     /* vsync_end + v-back-porch = 2432 */
+    .width_mm = 70,
+    .height_mm = 155,
 };
+
 
 static int xiaomi_m17_panel_get_modes(struct drm_panel *panel,
 				     struct drm_connector *connector)
@@ -225,7 +230,7 @@ static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
-			  MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET;
+			  MIPI_DSI_MODE_LPM;
 
 	ret = xiaomi_m17_configure_dsc(dsi);
 	if (ret)
@@ -235,6 +240,20 @@ static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
 	
 	/* Required for QCOM hosts to ensure link is powered before transmitting commands */
 	ctx->panel.prepare_prev_first = true;
+
+	struct backlight_properties props = {
+		.type = BACKLIGHT_RAW,
+		.max_brightness = 2047,
+	    };
+
+	    /* Register standard DCS backlight control */
+	ctx->panel.backlight = devm_backlight_device_register(&dsi->dev, 
+		"xiaomi_m17_bl", &dsi->dev, ctx, 
+		&mipi_dsi_dcs_backlight_ops, &props);
+	    
+	if (IS_ERR(ctx->panel.backlight))
+		return dev_err_probe(&dsi->dev, PTR_ERR(ctx->panel.backlight),
+			     "Failed to register backlight\n");
 
 	drm_panel_add(&ctx->panel);
 	
