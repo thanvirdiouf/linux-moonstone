@@ -17,13 +17,17 @@
 #include <drm/display/drm_dsc.h>
 #include <drm/display/drm_dsc_helper.h>
 
-#ifndef mipi_dsi_dcs_write_seq
-#define mipi_dsi_dcs_write_seq(dsi, cmd, seq...)            \
-    do {                                                    \
-        static const u8 d[] = { seq };                      \
-        mipi_dsi_dcs_write(dsi, cmd, d, ARRAY_SIZE(d));     \
+/* Safe write macro that aborts the init sequence on failure */
+#define mipi_dsi_dcs_write_seq_safe(dsi, cmd, seq...)               \
+    do {                                                            \
+        static const u8 d[] = { seq };                              \
+        int _ret = mipi_dsi_dcs_write(dsi, cmd, d, ARRAY_SIZE(d));  \
+        if (_ret < 0) {                                             \
+            dev_err(&dsi->dev, "Failed to write DCS 0x%02x: %d\n",  \
+                    cmd, _ret);                                     \
+            return _ret;                                            \
+        }                                                           \
     } while (0)
-#endif
 
 struct xiaomi_m17_panel {
     struct drm_panel panel;
@@ -50,7 +54,22 @@ static int xiaomi_m17_configure_dsc(struct mipi_dsi_device *dsi)
     dsc->bits_per_pixel = 8 << 4; /* U4.4 fixed point */
     dsc->block_pred_enable = true;
 
+    /* Standard DSC 1.1 parameters for 8bpc */
+    dsc->dsc_version_major = 1;
+    dsc->dsc_version_minor = 1;
+    dsc->convert_rgb = 1;
+    dsc->native_420 = 0;
+    dsc->native_422 = 0;
+    dsc->line_buf_depth = 9;
+    dsc->rc_model_size = 8192;
+    dsc->initial_offset = 6144;
+
     drm_dsc_compute_rc_parameters(dsc);
+    
+    /* 
+     * Required: Informs the Qualcomm DPU hardware encoder to compress 
+     * the stream. (The panel's TCON is configured separately via 0x9E).
+     */
     dsi->dsc = dsc;
 
     return 0;
@@ -63,8 +82,10 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
     int ret;
 
     ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
-    if (ret < 0)
+    if (ret < 0) {
+        dev_err(&dsi->dev, "Failed to enable regulators: %d\n", ret);
         return ret;
+    }
 
     msleep(20);
 
@@ -76,18 +97,20 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
     gpiod_set_value(ctx->reset_gpio, 1);
     msleep(10);
 
-    /* Translated from qcom,mdss-dsi-on-command */
-    mipi_dsi_dcs_exit_sleep_mode(dsi);
+    ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
+    if (ret < 0)
+        return ret;
+        
     msleep(20);
 
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0xb2, 0x01, 0x31);
-    mipi_dsi_dcs_write_seq(dsi, 0xdf, 0x09, 0x30, 0x95, 0x46, 0xe9);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0x9d, 0x01);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb2, 0x01, 0x31);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xdf, 0x09, 0x30, 0x95, 0x46, 0xe9);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0x9d, 0x01);
 
-    /* Xiaomi/Novatek Quirk: DSC PPS must be sent as standard DCS long write to 0x9E */
-    mipi_dsi_dcs_write_seq(dsi, 0x9e, 0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x60,
+    /* Xiaomi/Novatek Quirk: DSC PPS must be sent as standard DCS long write */
+    mipi_dsi_dcs_write_seq_safe(dsi, 0x9e, 0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x60,
         0x04, 0x38, 0x00, 0x28, 0x02, 0x1c, 0x02, 0x1c, 0x02, 0x00, 0x02, 0x0e, 0x00, 0x20, 0x03, 0xdd,
         0x00, 0x07, 0x00, 0x0c, 0x02, 0x77, 0x02, 0x8b, 0x18, 0x00, 0x10, 0xf0, 0x03, 0x0c, 0x20, 0x00,
         0x06, 0x0b, 0x0b, 0x33, 0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7b,
@@ -95,47 +118,49 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
         0x1a, 0x38, 0x1a, 0x78, 0x1a, 0xb6, 0x2a, 0xf6, 0x2b, 0x34, 0x2b, 0x74, 0x3b, 0x74, 0x6b, 0xf4,
         0x00);
 
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0x60, 0x21);
-    mipi_dsi_dcs_write_seq(dsi, 0xf7, 0x0b);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x15, 0xf6);
-    mipi_dsi_dcs_write_seq(dsi, 0xf6, 0xf0);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x28, 0xf6);
-    mipi_dsi_dcs_write_seq(dsi, 0xf6, 0xf0);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x3b, 0xf6);
-    mipi_dsi_dcs_write_seq(dsi, 0xf6, 0xf0);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x0a, 0xf4);
-    mipi_dsi_dcs_write_seq(dsi, 0xf4, 0x98);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x11, 0xf4);
-    mipi_dsi_dcs_write_seq(dsi, 0xf4, 0xee);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x18, 0xb2);
-    mipi_dsi_dcs_write_seq(dsi, 0xb2, 0x1c);
-    mipi_dsi_dcs_write_seq(dsi, 0xfc, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x11, 0xfe);
-    mipi_dsi_dcs_write_seq(dsi, 0xfe, 0x00);
-    mipi_dsi_dcs_write_seq(dsi, 0xfc, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x0d, 0xb2);
-    mipi_dsi_dcs_write_seq(dsi, 0xb2, 0x20);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x0c, 0xb2);
-    mipi_dsi_dcs_write_seq(dsi, 0xb2, 0x30);
-    mipi_dsi_dcs_write_seq(dsi, 0xf7, 0x0b);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0xfc, 0x5a, 0x5a);
-    mipi_dsi_dcs_write_seq(dsi, 0xed, 0x01, 0xcd, 0x00);
-    mipi_dsi_dcs_write_seq(dsi, 0xe1, 0x93);
-    mipi_dsi_dcs_write_seq(dsi, 0xb0, 0x00, 0x06, 0xf4);
-    mipi_dsi_dcs_write_seq(dsi, 0xf4, 0x1f);
-    mipi_dsi_dcs_write_seq(dsi, 0xf0, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0xfc, 0xa5, 0xa5);
-    mipi_dsi_dcs_write_seq(dsi, 0x53, 0x20); 
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0x60, 0x21);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf7, 0x0b);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x15, 0xf6);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf6, 0xf0);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x28, 0xf6);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf6, 0xf0);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x3b, 0xf6);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf6, 0xf0);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x0a, 0xf4);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf4, 0x98);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x11, 0xf4);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf4, 0xee);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x18, 0xb2);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb2, 0x1c);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xfc, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x11, 0xfe);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xfe, 0x00);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xfc, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x0d, 0xb2);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb2, 0x20);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x0c, 0xb2);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb2, 0x30);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf7, 0x0b);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xfc, 0x5a, 0x5a);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xed, 0x01, 0xcd, 0x00);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xe1, 0x93);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xb0, 0x00, 0x06, 0xf4);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf4, 0x1f);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0xfc, 0xa5, 0xa5);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0x53, 0x20); 
     
-    mipi_dsi_dcs_write_seq(dsi, 0x51, 0x00, 0x00);
+    mipi_dsi_dcs_write_seq_safe(dsi, 0x51, 0x00, 0x00);
     msleep(100);
 
-    mipi_dsi_dcs_set_display_on(dsi);
+    ret = mipi_dsi_dcs_set_display_on(dsi);
+    if (ret < 0)
+        return ret;
 
     return 0;
 }
@@ -143,8 +168,8 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
 static int xiaomi_m17_panel_unprepare(struct drm_panel *panel)
 {
     struct xiaomi_m17_panel *ctx = container_of(panel, struct xiaomi_m17_panel, panel);
+    int ret;
 
-    /* Translated from qcom,mdss-dsi-pre-off-command */
     mipi_dsi_dcs_set_display_off(ctx->dsi);
     msleep(20);
     
@@ -152,7 +177,10 @@ static int xiaomi_m17_panel_unprepare(struct drm_panel *panel)
     msleep(150);
 
     gpiod_set_value(ctx->reset_gpio, 1);
-    regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+    
+    ret = regulator_bulk_disable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
+    if (ret < 0)
+        dev_err(&ctx->dsi->dev, "Failed to disable regulators: %d\n", ret);
 
     return 0;
 }
@@ -197,6 +225,21 @@ static const struct drm_panel_funcs xiaomi_m17_panel_funcs = {
     .get_modes = xiaomi_m17_panel_get_modes,
 };
 
+static int xiaomi_m17_bl_update_status(struct backlight_device *bl)
+{
+    struct xiaomi_m17_panel *ctx = bl_get_data(bl);
+    u16 brightness = (u16)backlight_get_brightness(bl);
+
+    if (brightness > 2047)
+        brightness = 2047;
+
+    return mipi_dsi_dcs_set_display_brightness(ctx->dsi, brightness);
+}
+
+static const struct backlight_ops xiaomi_m17_bl_ops = {
+    .update_status = xiaomi_m17_bl_update_status,
+};
+
 static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
 {
     struct xiaomi_m17_panel *ctx;
@@ -223,13 +266,12 @@ static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
     dsi->lanes = 4;
     dsi->format = MIPI_DSI_FMT_RGB888;
     
-    /* Notice: MIPI_DSI_MODE_NO_EOT_PACKET is deliberately removed based on DTSI */
     dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
                       MIPI_DSI_MODE_LPM;
 
     ret = xiaomi_m17_configure_dsc(dsi);
     if (ret)
-        return ret;
+        return dev_err_probe(&dsi->dev, ret, "Failed to configure DSC\n");
 
     drm_panel_init(&ctx->panel, &dsi->dev, &xiaomi_m17_panel_funcs, DRM_MODE_CONNECTOR_DSI);
     
@@ -239,7 +281,7 @@ static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
     props.type = BACKLIGHT_RAW;
     props.max_brightness = 2047;
     ctx->panel.backlight = devm_backlight_device_register(&dsi->dev, "xiaomi_m17_bl", 
-                           &dsi->dev, ctx, &mipi_dsi_dcs_backlight_ops, &props);
+                           &dsi->dev, ctx, &xiaomi_m17_bl_ops, &props);
     if (IS_ERR(ctx->panel.backlight))
         return dev_err_probe(&dsi->dev, PTR_ERR(ctx->panel.backlight),
                      "Failed to register backlight\n");
