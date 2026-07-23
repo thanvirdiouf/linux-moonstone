@@ -79,6 +79,7 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
 {
     struct xiaomi_m17_panel *ctx = container_of(panel, struct xiaomi_m17_panel, panel);
     struct mipi_dsi_device *dsi = ctx->dsi;
+    struct drm_dsc_picture_parameter_set pps;
     int ret;
 
     ret = regulator_bulk_enable(ARRAY_SIZE(ctx->supplies), ctx->supplies);
@@ -117,6 +118,10 @@ static int xiaomi_m17_panel_prepare(struct drm_panel *panel)
         0x7d, 0x7e, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40, 0x09, 0xbe, 0x19, 0xfc, 0x19, 0xfa, 0x19, 0xf8,
         0x1a, 0x38, 0x1a, 0x78, 0x1a, 0xb6, 0x2a, 0xf6, 0x2b, 0x34, 0x2b, 0x74, 0x3b, 0x74, 0x6b, 0xf4,
         0x00);
+
+    /* RESTORED: Panel also requires standard MIPI 0x0A PPS payload immediately after */
+    drm_dsc_pps_payload_pack(&pps, dsi->dsc);
+    mipi_dsi_picture_parameter_set(dsi, &pps);
 
     mipi_dsi_dcs_write_seq_safe(dsi, 0xf0, 0x5a, 0x5a);
     mipi_dsi_dcs_write_seq_safe(dsi, 0x60, 0x21);
@@ -267,7 +272,7 @@ static int xiaomi_m17_panel_probe(struct mipi_dsi_device *dsi)
     dsi->format = MIPI_DSI_FMT_RGB888;
     
     dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST |
-                      MIPI_DSI_MODE_LPM;
+                      MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET;
 
     ret = xiaomi_m17_configure_dsc(dsi);
     if (ret)
