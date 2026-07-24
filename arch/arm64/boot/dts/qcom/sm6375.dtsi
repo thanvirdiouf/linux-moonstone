@@ -1419,7 +1419,7 @@
 		};
 
 		usb_1: usb@4ef8800 {
-			compatible = "qcom,sm6375-dwc3", "qcom,dwc3";
+			compatible = "qcom,sm6375-dwc3", "qcom,snps-dwc3";
 			reg = <0 0x04ef8800 0 0x400>;
 
 			clocks = <&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,

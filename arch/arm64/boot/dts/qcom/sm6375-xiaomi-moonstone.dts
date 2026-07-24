@@ -459,6 +459,10 @@
 	status = "okay";
 };
 
+&usb_1_qmpphy {
+    status = "okay";
+};
+
 &xo_board_clk {
 	clock-frequency = <19200000>;
 };
@@ -539,6 +543,14 @@
 
 		status = "okay";
 	};
+};
+
+&mdss {
+    status = "okay";
+};
+
+&mdss_dsi0_phy {
+    status = "okay";
 };
 
 &mdss_dsi0 {
