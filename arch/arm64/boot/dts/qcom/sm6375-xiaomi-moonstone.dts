@@ -459,10 +459,6 @@
 	status = "okay";
 };
 
-&usb_1_qmpphy {
-    status = "okay";
-};
-
 &xo_board_clk {
 	clock-frequency = <19200000>;
 };
