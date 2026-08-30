@@ -244,17 +244,17 @@
 };
 
 &remoteproc_adsp {
-	firmware-name = "qcom/sm6375/xiaomi/moonstone/adsp.mbn";
+	firmware-name = "adsp";
 	status = "okay";
 };
 
 &remoteproc_cdsp {
-	firmware-name = "qcom/sm6375/xiaomi/moonstone/cdsp.mbn";
+	firmware-name = "cdsp";
 	status = "okay";
 };
 
 &remoteproc_mss {
-	firmware-name = "qcom/sm6375/xiaomi/moonstone/modem.mbn";
+	firmware-name = "modem";
 	status = "okay";
 };
 
