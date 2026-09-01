@@ -7,7 +7,7 @@
 #include <dt-bindings/clock/qcom,sm6375-gcc.h>
 #include <dt-bindings/clock/qcom,sm6375-gpucc.h>
 #include <dt-bindings/clock/qcom,sm6375-dispcc.h>
-#include <dt-bindings/clock/qcom,gcc-sm6375.h>
+#include <dt-bindings/clock/qcom,sm6375-gcc.h>
 #include <dt-bindings/power/qcom-rpmpd.h>
 #include <dt-bindings/dma/qcom-gpi.h>
 #include <dt-bindings/firmware/qcom,scm.h>
