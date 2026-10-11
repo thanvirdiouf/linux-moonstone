@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/* Select only if Android identifies the installed panel as the K6S variant. */
+#include "sm6375-xiaomi-moonstone-display.dts"
+
+&panel {
+	compatible = "xiaomi,moonstone-m17-k6s";
+};

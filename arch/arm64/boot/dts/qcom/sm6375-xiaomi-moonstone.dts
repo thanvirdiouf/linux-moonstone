@@ -9,11 +9,11 @@
 #define PMK8350_SID 6
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "sm6375.dtsi"
 #include "pm6125.dtsi"
 #include "pmk8350.dtsi"
 #include "pmr735a.dtsi"
-#include <dt-bindings/input/input.h>
 
 /* PM6125 PON is used and we can't have duplicate labels */
 /delete-node/ &pmk8350_pon;
@@ -23,8 +23,8 @@
 	compatible = "xiaomi,moonstone", "qcom,sm6375";
 
 	/* Required by Qualcomm ABL to validate the DTB */
-	qcom,msm-id = <0x1fb 0x10000 0x242 0x10000>;
-	qcom,board-id = <0x1000b 0x00>;
+	qcom,msm-id = <507 0x10000>;
+	qcom,board-id = <0x1000b 0>;
 
 	chassis-type = "handset";
 
@@ -43,10 +43,9 @@
 			height = <2400>;
 			stride = <(1080 * 4)>;
 			format = "a8r8g8b8";
-			/*
-			 * That's (going to be) a lot of clocks, but it's necessary due
-			 * to unused clk cleanup & no panel driver yet
-			 */
+			vdda-supply = <&pm6125_l4>;
+			vddio-supply = <&pm6125_l13>;
+			/* Preserve the bootloader scanout during diagnostic bring-up. */
 			clocks = <&gcc GCC_DISP_AHB_CLK>,
 				 <&gcc GCC_DISP_HF_AXI_CLK>,
 				 <&gcc GCC_DISP_THROTTLE_CORE_CLK>,
@@ -84,9 +83,9 @@
 		ramoops@d0000000 {
 			compatible = "ramoops";
 			reg = <0 0xd0000000 0 0x200000>;
-			record-size = <0x40000>;
+			/* Match moonstone.dts so Android/recovery can read the log. */
 			console-size = <0x100000>;
-			pmsg-size = <0x80000>;
+			pmsg-size = <0x100000>;
 		};
 	};
 
@@ -98,24 +97,9 @@
 		regulator-always-on;
 		regulator-boot-on;
 	};
-	vreg_dummy_1p2vreg_l8a: regulator-dummy-1p2 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_dummy_1p2";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		regulator-always-on;
-	};
-
-	vreg_dummy_1p8vreg_l13a: regulator-dummy-1p8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_dummy_1p8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
 };
 
-/* PIL memory region overrides matching stock Moonstone layout */
+/* PIL memory region overrides matching stock Moonstone layout. */
 &pil_adsp_mem {
 	reg = <0 0x86700000 0 0x2800000>;
 };
@@ -146,6 +130,11 @@
 
 &removed_mem {
 	reg = <0 0xc0000000 0 0x5100000>;
+};
+
+/* No modem boot yet; do not assign the inherited RMTFS region to the modem. */
+&rmtfs_mem {
+	status = "disabled";
 };
 
 &pon_pwrkey {
@@ -181,82 +170,16 @@
 
 &qupv3_id_1 {
 	status = "okay";
-
-	uart9: serial@4c8c000 {
-		compatible = "qcom,geni-uart";
-		reg = <0x0 0x04c8c000 0x0 0x4000>;
-		interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
-		clock-names = "se";
-		clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>;
-		pinctrl-0 = <&qup_uart9_default>;
-		pinctrl-names = "default";
-		status = "okay";
-	};
 };
-
-&i2c8 {
-	status = "okay";
-
-	touchscreen@38 {
-		compatible = "focaltech,ft3519t";
-		reg = <0x38>;
-		
-		interrupt-parent = <&tlmm>;
-		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
-		
-		reset-gpios = <&tlmm 21 GPIO_ACTIVE_LOW>;
-		vcc-supply = <&reg_ts_avdd>;
-		iovcc-supply = <&pm6125_l13>; 
-
-		touchscreen-size-x = <1080>;
-		touchscreen-size-y = <2400>;
-	};
-};
-
 
 &tlmm {
 	gpio-reserved-ranges = <13 4>;
-
-	qup_uart9_default: qup-uart9-default-state {
-		pins = "gpio25", "gpio26";
-		function = "qup13_f2";
-		drive-strength = <2>;
-		bias-disable;
-	};
 };
 
-&uart1 {
-	status = "okay";
-	
-	bluetooth {
-		compatible = "qcom,wcn6855-bt";
-		
-		vddio-supply = <&pm6125_l13>; 
-		vddaon-supply = <&pm6125_l19>;
-		vddrfa1-supply = <&pm6125_l20>;
-		vddrfa2-supply = <&pm6125_l20>;
-		vddrfa3-supply = <&pm6125_l20>;
-
-		enable-gpios = <&tlmm 85 GPIO_ACTIVE_HIGH>;
-		
-		max-speed = <3200000>;
-	};
-};
-
-&remoteproc_adsp {
-	firmware-name = "adsp";
-	status = "okay";
-};
-
-&remoteproc_cdsp {
-	firmware-name = "cdsp";
-	status = "okay";
-};
-
-&remoteproc_mss {
-	firmware-name = "modem";
-	status = "okay";
-};
+/*
+ * Remote processors and Bluetooth stay disabled until firmware and rails
+ * have been verified. They are not needed for the diagnostic USB boot.
+ */
 
 &rpm_requests {
 	regulators-0 {
@@ -293,8 +216,9 @@
 		};
 
 		pm6125_l4: l4 {
-			regulator-min-microvolt = <1100000>;
-			regulator-max-microvolt = <1300000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-allow-set-load;
 		};
 
 		pm6125_l5: l5 {
@@ -334,13 +258,16 @@
 		};
 
 		pm6125_l12: l12 {
-			regulator-min-microvolt = <1620000>;
-			regulator-max-microvolt = <2000000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-always-on;
 		};
 
 		pm6125_l13: l13 {
-			regulator-min-microvolt = <1650000>;
-			regulator-max-microvolt = <1980000>;
+			regulator-min-microvolt = <1860000>;
+			regulator-max-microvolt = <1860000>;
+			regulator-boot-on;
+			regulator-always-on;
 		};
 
 		pm6125_l14: l14 {
@@ -349,8 +276,9 @@
 		};
 
 		pm6125_l15: l15 {
-			regulator-min-microvolt = <1650000>;
-			regulator-max-microvolt = <3544000>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-always-on;
 		};
 
 		pm6125_l16: l16 {
@@ -376,6 +304,7 @@
 		};
 
 		pm6125_l21: l21 {
+			regulator-always-on;
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3312000>;
 		};
@@ -437,11 +366,10 @@
 
 		pmr735a_l7: l7 {
 			regulator-min-microvolt = <2700000>;
-			regulator-max-microvolt = <3544000>;
+			regulator-max-microvolt = <3300000>;
 		};
 	};
 };
-
 
 
 &usb_1 {
@@ -463,187 +391,41 @@
 	clock-frequency = <19200000>;
 };
 
-&soc {
-	ufs_mem_hc: ufshc@4804000 {
-		compatible = "qcom,sm6375-ufshc", "qcom,ufshc";
-		reg = <0x0 0x04804000 0x0 0x3000>,
-		      <0x0 0x04808000 0x0 0x8000>,
-		      <0x0 0x04810000 0x0 0x9000>;
-		reg-names = "std", "ice", "ice_hwkm";
-		interrupts = <GIC_SPI 356 IRQ_TYPE_LEVEL_HIGH>;
-
-		phys = <&ufs_mem_phy>;
-		phy-names = "ufsphy";
-		#reset-cells = <1>;
-
-		clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
-		         <&gcc GCC_SYS_NOC_UFS_PHY_AXI_CLK>,
-		         <&gcc GCC_UFS_PHY_AHB_CLK>,
-		         <&gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
-		         <&gcc GCC_UFS_PHY_ICE_CORE_CLK>,
-		         <&rpmcc RPM_SMD_XO_CLK_SRC>,
-		         <&gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
-		         <&gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>;
-		clock-names = "core_clk",
-		              "bus_aggr_clk",
-		              "iface_clk",
-		              "core_clk_unipro",
-		              "core_clk_ice",
-		              "ref_clk",
-		              "tx_lane0_sync_clk",
-		              "rx_lane0_sync_clk";
-
-		freq-table-hz = <50000000 200000000>,
-		                <0 0>,
-		                <0 0>,
-		                <37500000 150000000>,
-		                <75000000 300000000>,
-		                <0 0>,
-		                <0 0>,
-		                <0 0>;
-
-		power-domains = <&gcc UFS_PHY_GDSC>;
-		resets = <&gcc GCC_UFS_PHY_BCR>;
-		reset-names = "rst";
-		iommus = <&apps_smmu 0x60 0x0>;
-
-		vcc-supply = <&pm6125_l24>;
-		vcc-max-microamp = <600000>;
-		vccq2-supply = <&pm6125_l11>;
-		vccq2-max-microamp = <600000>;
-		vdd-hba-supply = <&pm6125_l18>;
-
-		status = "okay";
-	};
-
-	ufs_mem_phy: phy@4807000 {
-		compatible = "qcom,sm6375-qmp-ufs-phy";
-		reg = <0x0 0x04807000 0x0 0xddc>;
-		reg-names = "serdes";
-
-		clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
-		         <&gcc GCC_UFS_PHY_PHY_AUX_CLK>,
-		         <&gcc GCC_UFS_MEM_CLKREF_CLK>;
-		clock-names = "ref_clk_src", "ref_clk", "ref_aux_clk";
-
-		resets = <&ufs_mem_hc 0>;
-		reset-names = "ufsphy";
-
-		vdda-phy-supply = <&pm6125_l4>;
-		vdda-phy-max-microamp = <85700>;
-		vdda-pll-supply = <&pm6125_l12>;
-		vdda-pll-max-microamp = <18300>;
-
-		lanes-per-direction = <1>;
-		#phy-cells = <0>;
-
-		status = "okay";
-	};
-};
-
-&mdss {
-    status = "okay";
-};
-
-&mdss_dsi0_phy {
-    status = "okay";
-};
-
-&mdss_dsi0 {
+&uart9 {
 	status = "okay";
-	vdda-supply = <&vreg_l6b>;
+};
 
-	panel@0 {
-		compatible = "xiaomi,moonstone-m17";
-		reg = <0>;
+/* Keep DISPCC from reprogramming the bootloader PLL in the USB-first DTB. */
+&dispcc {
+	status = "disabled";
+};
 
-		/* Real PMIC routing extracted from vendor_boot */
-		vddio-supply = <&vreg_l13a>;
-		vdd-supply = <&vreg_l8a>;
-		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
+&refgen {
+	status = "disabled";
+};
 
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&mdss_dsi0_out>;
-			};
-		};
+&sdc2_off_state {
+	sd-cd-pins {
+		pins = "gpio94";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-disable;
 	};
 };
 
-/* Temporary dummy regulators to satisfy display dependencies during bring-up */
-/ {
-	vreg_dummy_1p2: regulator-dummy-1p2 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_dummy_1p2";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-	};
-
-	vreg_dummy_1p8: regulator-dummy-1p8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_dummy_1p8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+&sdc2_on_state {
+	sd-cd-pins {
+		pins = "gpio94";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
 	};
 };
 
-
-/* Temporary dummy regulators to satisfy display dependencies */
-/ {
-	vreg_l6b: regulator-dummy-l6b {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_l6b_dummy";
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-		regulator-always-on;
-	};
-
-	vreg_l13a: regulator-dummy-l13a {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_l13a_dummy";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-		regulator-always-on;
-	};
-
-	vreg_l8a: regulator-dummy-l8a {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_l8a_dummy";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <3000000>;
-		regulator-always-on;
-	};
-};
-
-/ {
-	reg_ts_avdd: ts-avdd-regulator {
-		compatible = "regulator-fixed";
-		regulator-name = "ts_avdd";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-		gpio = <&tlmm 49 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-boot-on;
-	};
-};
-
-
-&mdss_dsi0_out {
-	remote-endpoint = <&panel_in>;
-	data-lanes = <0 1 2 3>;
-};
-
-&spmi_bus {
-	pm6125_lsid0: pmic@0 {
-		compatible = "qcom,pm6125", "qcom,spmi-pmic";
-		reg = <0x0 SPMI_USID>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		pm6125_pon: pon@800 {
-			compatible = "qcom,pm8916-pon";
-			reg = <0x800>;
-			mode = "hard";
-		};
-	};
+&sdhc_2 {
+	vmmc-supply = <&pm6125_l22>;
+	vqmmc-supply = <&pm6125_l5>;
+	/* Moonstone overrides the QRD card-detect polarity. */
+	cd-gpios = <&tlmm 94 GPIO_ACTIVE_HIGH>;
+	status = "okay";
 };

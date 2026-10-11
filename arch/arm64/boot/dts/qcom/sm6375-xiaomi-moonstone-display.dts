@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/* Experimental native display; use the base DTB for USB-first diagnosis. */
+#include "sm6375-xiaomi-moonstone.dts"
+
+/ {
+	/* Moonstone removes the QRD regulator GPIO; panel enable owns GPIO24. */
+	panel_avdd: regulator-panel-avdd {
+		compatible = "regulator-fixed";
+		regulator-name = "panel_avdd";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+	};
+};
+
+&dispcc {
+	status = "okay";
+};
+
+&refgen {
+	status = "okay";
+};
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0_phy {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	vdda-supply = <&pm6125_l4>;
+	status = "okay";
+
+	panel: panel@0 {
+		compatible = "xiaomi,moonstone-m17";
+		reg = <0>;
+		vddio-supply = <&pm6125_l13>;
+		avdd-supply = <&panel_avdd>;
+		enable-gpios = <&tlmm 24 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pmr735a_gpios 2 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&panel_reset_default &panel_enable_default>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&mdss_dsi0_out>;
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};
+
+&pmr735a_gpios {
+	panel_reset_default: panel-reset-default-state {
+		pins = "gpio2";
+		function = "normal";
+		power-source = <1>;
+		bias-disable;
+	};
+};
+
+&tlmm {
+	panel_enable_default: panel-enable-default-state {
+		pins = "gpio24";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-disable;
+	};
+};

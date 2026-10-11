@@ -976,6 +976,7 @@ properties:
       - items:
           - enum:
               - sony,pdx225
+              - xiaomi,moonstone
           - const: qcom,sm6375
 
       - items:

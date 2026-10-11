@@ -7,8 +7,6 @@
 #include <dt-bindings/clock/qcom,sm6375-gcc.h>
 #include <dt-bindings/clock/qcom,sm6375-gpucc.h>
 #include <dt-bindings/clock/qcom,sm6375-dispcc.h>
-#include <dt-bindings/clock/qcom,sm6375-gcc.h>
-#include <dt-bindings/power/qcom-rpmpd.h>
 #include <dt-bindings/dma/qcom-gpi.h>
 #include <dt-bindings/firmware/qcom,scm.h>
 #include <dt-bindings/interconnect/qcom,osm-l3.h>
@@ -532,6 +530,54 @@
 		};
 	};
 
+	mdp_opp_table: opp-table-mdp {
+		compatible = "operating-points-v2";
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			required-opps = <&rpmpd_opp_low_svs>;
+		};
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			required-opps = <&rpmpd_opp_svs>;
+		};
+
+		opp-373500000 {
+			opp-hz = /bits/ 64 <373500000>;
+			required-opps = <&rpmpd_opp_svs_plus>;
+		};
+
+		opp-470000000 {
+			opp-hz = /bits/ 64 <470000000>;
+			required-opps = <&rpmpd_opp_nom>;
+		};
+
+		opp-560000000 {
+			opp-hz = /bits/ 64 <560000000>;
+			required-opps = <&rpmpd_opp_turbo>;
+		};
+	};
+
+	dsi_opp_table: opp-table-dsi {
+		compatible = "operating-points-v2";
+
+		opp-187500000 {
+			opp-hz = /bits/ 64 <187500000>;
+			required-opps = <&rpmpd_opp_low_svs>;
+		};
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			required-opps = <&rpmpd_opp_svs>;
+		};
+
+		opp-358000000 {
+			opp-hz = /bits/ 64 <358000000>;
+			required-opps = <&rpmpd_opp_svs_plus>;
+		};
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -917,6 +963,13 @@
 				pins = "gpio0", "gpio1", "gpio2", "gpio3";
 				function = "qup00";
 				drive-strength = <6>;
+				bias-disable;
+			};
+
+			qup_uart9_default: qup-uart9-default-state {
+				pins = "gpio25", "gpio26";
+				function = "qup13_f2";
+				drive-strength = <2>;
 				bias-disable;
 			};
 
@@ -1401,6 +1454,19 @@
 				status = "disabled";
 			};
 
+			uart9: serial@4c8c000 {
+				compatible = "qcom,geni-debug-uart";
+				reg = <0x0 0x04c8c000 0x0 0x4000>;
+				interrupts = <GIC_SPI 510 IRQ_TYPE_LEVEL_HIGH>;
+				clock-names = "se";
+				clocks = <&gcc GCC_QUPV3_WRAP1_S3_CLK>;
+				pinctrl-0 = <&qup_uart9_default>;
+				pinctrl-names = "default";
+				power-domains = <&rpmpd SM6375_VDDCX>;
+				operating-points-v2 = <&qup_opp_table>;
+				status = "disabled";
+			};
+
 			spi10: spi@4c90000 {
 				compatible = "qcom,geni-spi";
 				reg = <0x0 0x04c90000 0x0 0x4000>;
@@ -1419,7 +1485,7 @@
 		};
 
 		usb_1: usb@4ef8800 {
-			compatible = "qcom,sm6375-dwc3", "qcom,snps-dwc3";
+			compatible = "qcom,sm6375-dwc3", "qcom,dwc3";
 			reg = <0 0x04ef8800 0 0x400>;
 
 			clocks = <&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
@@ -1842,17 +1908,15 @@
 			#freq-domain-cells = <1>;
 			#clock-cells = <1>;
 		};
+
 		dispcc: clock-controller@5f00000 {
 			compatible = "qcom,sm6375-dispcc";
 			reg = <0 0x05f00000 0 0x20000>;
 			clocks = <&rpmcc RPM_SMD_XO_CLK_SRC>,
-				 <&gcc GCC_DISP_AHB_CLK>,
+				 <&gcc GCC_DISP_GPLL0_DIV_CLK_SRC>,
 				 <&mdss_dsi0_phy 0>,
 				 <&mdss_dsi0_phy 1>;
-			clock-names = "bi_tcxo",
-				      "gcc_disp_ahb_clk",
-				      "dsi0_phy_pll_out_byteclk",
-				      "dsi0_phy_pll_out_dsiclk";
+
 			#clock-cells = <1>;
 			#reset-cells = <1>;
 			#power-domain-cells = <1>;
@@ -1864,10 +1928,11 @@
 			reg-names = "mdss";
 			power-domains = <&dispcc MDSS_GDSC>;
 			clocks = <&gcc GCC_DISP_AHB_CLK>,
-				 <&gcc GCC_DISP_HF_AXI_CLK>,
 				 <&dispcc DISP_CC_MDSS_AHB_CLK>,
 				 <&dispcc DISP_CC_MDSS_MDP_CLK>;
-			clock-names = "iface", "bus", "ahb", "core";
+			clock-names = "iface", "ahb", "core";
+
+			iommus = <&apps_smmu 0x820 0x2>;
 
 			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
@@ -1881,15 +1946,22 @@
 
 			mdss_mdp: display-controller@5e01000 {
 				compatible = "qcom,sm6375-dpu";
-				reg = <0x05e01000 0x8f000>,
+				reg = <0x05e01000 0x8e030>,
 				      <0x05eb0000 0x2008>;
 				reg-names = "mdp", "vbif";
 
-				clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
-					 <&gcc GCC_DISP_HF_AXI_CLK>,
+				clocks = <&gcc GCC_DISP_HF_AXI_CLK>,
+					 <&dispcc DISP_CC_MDSS_AHB_CLK>,
+					 <&dispcc DISP_CC_MDSS_ROT_CLK>,
+					 <&dispcc DISP_CC_MDSS_MDP_LUT_CLK>,
 					 <&dispcc DISP_CC_MDSS_MDP_CLK>,
-					 <&dispcc DISP_CC_MDSS_MDP_LUT_CLK>;
-				clock-names = "iface", "bus", "core", "lut";
+					 <&dispcc DISP_CC_MDSS_VSYNC_CLK>,
+					 <&gcc GCC_DISP_THROTTLE_CORE_CLK>;
+				clock-names = "bus", "iface", "rot", "lut", "core",
+					      "vsync", "throttle";
+				assigned-clocks = <&dispcc DISP_CC_MDSS_VSYNC_CLK>;
+				assigned-clock-rates = <19200000>;
+				operating-points-v2 = <&mdp_opp_table>;
 
 				interrupt-parent = <&mdss>;
 				interrupts = <0>;
@@ -1924,11 +1996,14 @@
 					 <&gcc GCC_DISP_HF_AXI_CLK>;
 				clock-names = "byte", "byte_intf", "pixel", "core", "iface", "bus";
 				phys = <&mdss_dsi0_phy>;
+				refgen-supply = <&refgen>;
+
+				assigned-clocks = <&dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
+						  <&dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+				assigned-clock-parents = <&mdss_dsi0_phy 0>, <&mdss_dsi0_phy 1>;
+				operating-points-v2 = <&dsi_opp_table>;
 
 				power-domains = <&rpmpd SM6375_VDDMX>;
-
-				#address-cells = <1>;
-				#size-cells = <0>;
 
 				status = "disabled";
 
@@ -1946,7 +2021,7 @@
 					port@1 {
 						reg = <1>;
 						mdss_dsi0_out: endpoint {
-							/* Routed to panel_in in your board DTS */
+							/* Connected by the board. */
 						};
 					};
 				};
@@ -1956,7 +2031,7 @@
 				compatible = "qcom,sm6375-dsi-phy-7nm";
 				reg = <0x05e94400 0x200>,
 				      <0x05e94600 0x280>,
-				      <0x05e94900 0x260>;
+				      <0x05e94900 0x264>;
 				reg-names = "dsi_phy", "dsi_phy_lane", "dsi_pll";
 
 				#phy-cells = <0>;

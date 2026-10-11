@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/xiaomi,moonstone-m17.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Xiaomi Moonstone M17 AMOLED panel
+
+maintainers:
+  - Thanvir Diouf <tandiouf@gmail.com>
+
+description:
+  The Poco X5 5G uses one of two M17 1080x2400 AMOLED panel variants.
+  Both use four DSI lanes, DSC and an 11-bit DCS backlight. The variants
+  require different initialization sequences.
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    enum:
+      - xiaomi,moonstone-m17
+      - xiaomi,moonstone-m17-k6s
+
+  reg:
+    maxItems: 1
+
+  vddio-supply:
+    description: Panel I/O supply (1.86 V).
+
+  avdd-supply:
+    description: Panel analog supply (3.0 V).
+
+  enable-gpios:
+    maxItems: 1
+
+  reset-gpios:
+    maxItems: 1
+    description: Active-low panel reset.
+
+  port: true
+
+required:
+  - compatible
+  - reg
+  - vddio-supply
+  - avdd-supply
+  - enable-gpios
+  - reset-gpios
+  - port
+
+unevaluatedProperties: false
